@@ -1,0 +1,11 @@
+ckpt/
+error_log/*
+exp_log/*
+install_log/*
+mccl_log/
+mthreads-gmi/*
+musa_chaglm/*
+musa_runtime
+test-clm/
+.vscode
+*.txt

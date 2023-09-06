@@ -1,0 +1,1 @@
+sed -i 's/^service ssh restart/#service ssh restart/' ~/.bashrc
