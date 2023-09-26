@@ -44,18 +44,19 @@ sleep 1s
 # export NCCL_IB_HCA=^mlx5_3:1
 # export NCCL_SOCKET_IFNAME=bond0:10.11.1.2
 export NCCL_PROTOS=2
+export MUSA_KERNEL_TIMEOUT=3600
 # export NCCL_DEBUG=TRACE
 
 OMP_NUM_THREADS=13 colossalai run --hostfile $hostfile \
     --nproc_per_node=$nproc_per_node \
-    run_clm_colo_chatglm.py \
+    run_clm_colo_chatglm2.py \
     --master_addr $first_ip \
-    --master_port 41246 \
+    --master_port 41248 \
     --device musa \
     --model_name_or_path ./chatglm-6b \
     --dataset_name wikitext \
     --dataset_config_name wikitext-2-raw-v1 \
-    --per_device_train_batch_size 1 \
+    --per_device_train_batch_size 3 \
     --per_device_eval_batch_size 1 \
     --output_dir ./test-clm \
     --cache_dir ./gpt2_ckpt/wikitext/wikitext-2-raw \

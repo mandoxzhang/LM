@@ -49,7 +49,7 @@ export MUSA_KERNEL_TIMEOUT=3600000
 
 OMP_NUM_THREADS=13 colossalai run --hostfile $hostfile \
     --nproc_per_node=$nproc_per_node \
-    run_clm_colo_llama.py \
+    run_clm_colo_llama_maas.py \
     --master_addr $first_ip \
     --master_port 41240 \
     --device musa \
@@ -63,13 +63,13 @@ OMP_NUM_THREADS=13 colossalai run --hostfile $hostfile \
     --output_dir ./test-clm \
     --cache_dir ./gpt2_ckpt/wikitext/wikitext-2-raw \
     --block_size 2048 \
-    --num_train_epochs 1 \
-    --checkpointing_steps 40 \
+    --num_train_epochs 100 \
+    --checkpointing_steps 1500 \
     --save_dir ./checkpoint/llama2 \
     --shardinit \
     # --resume_from_checkpoint ./checkpoint/llama2 \
 
 #--hostfile ./hostfile \
 #--include $host \
-# bash llama_run.sh hostfile 2> error_log/$(date "+%Y-%m-%d_%H:%M:%S")
+# bash llama_run_maas.sh hostfile 2> error_log/$(date "+%Y-%m-%d_%H:%M:%S")
 

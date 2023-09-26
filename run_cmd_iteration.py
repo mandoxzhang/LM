@@ -32,7 +32,7 @@ from pathlib import Path
 
 import datasets
 import torch
-import torch_musa
+# import torch_musa
 from utils import Logger, MultiTimer, get_mem_info
 # from accelerate import Accelerator, DistributedType
 # from accelerate.logging import get_logger
@@ -101,6 +101,12 @@ def parse_args():
         "Shard the tensors when init the model to shrink peak memory size on the assigned device. Valid when using colossalai as dist plan.",
     )
     parser.add_argument(
+        "--musa",
+        action='store_true',
+        help=
+        "Shard the tensors when init the model to shrink peak memory size on the assigned device. Valid when using colossalai as dist plan.",
+    )
+    parser.add_argument(
         "--local-rank",
         type=int,
         required=True
@@ -124,16 +130,19 @@ def main():
     world_size = int(os.environ['WORLD_SIZE'])
     # torch_musa.set_device(local_rank)
     # colossalai.launch_from_torch(config={}, backend='mccl')
+    host_name = whoami()
     if args.torch:
         cmd = f'bash /home/dist/llm/cmd/torch_install.sh | tee /home/dist/llm/install_log/torch_musa/{rank}.txt'
     # cmd = 'bash /home/dist/llm/cmd/ls.sh'
     elif args.cai:
-        host_name = whoami()
-        cmd = f'bash /home/dist/llm/cmd/colo_install.sh | tee /home/dist/llm/install_log/colossalai/{host_name}.txt'
+        
+        cmd = f'bash ./cmd/colo_install.sh | tee ./install_log/colossalai/{host_name}.txt'
     elif args.mthreads:
         cmd = f'ifconfig > ./mthreads-gmi/{rank}.txt && /usr/bin/mthreads-gmi >> ./mthreads-gmi/{rank}.txt'
     elif args.ssh:
-        cmd = f'bash /home/dist/llm/cmd/sed_ssh.sh'    
+        cmd = f'bash ./cmd/sed_ssh.sh'
+    elif args.musa:
+        cmd = f'bash ./cmd/musa_install.sh | tee ./install_log/musatoolkit/{host_name}.txt'
     
     print(cmd)
     # cmd = 'bash /home/dist/llm/cmd/mpi.sh'

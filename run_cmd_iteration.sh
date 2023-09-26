@@ -59,7 +59,7 @@ process_line() {
         run_cmd_iteration.py \
         --master_addr $first_ip \
         --master_port 41246 \
-        --cai
+        --musa
 
 }
 

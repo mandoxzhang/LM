@@ -47,10 +47,10 @@ sleep 1s
 export NCCL_PROTOS=2
 
 OMP_NUM_THREADS=13 colossalai run --hostfile $hostfile \
-    --nproc_per_node=1 \
+    --nproc_per_node=$nproc_per_node \
     run_cmd.py \
     --master_addr $first_ip \
-    --master_port 41246 \
+    --master_port 41218 \
     --mthreads
 
 #--hostfile ./hostfile \

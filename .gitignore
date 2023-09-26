@@ -9,3 +9,7 @@ musa_runtime
 test-clm/
 .vscode
 *.txt
+*.pyc
+*.cpython-38*
+checkpoint/*
+chatglm2/*

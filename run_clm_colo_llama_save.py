@@ -109,7 +109,7 @@ def main():
     # ==============================
     # Initialize Booster
     # ==============================
-    config = LlamaConfig.from_json_file(args.model_name_or_path + '/' + 'config.json')
+    config = LlamaConfig.from_json_file(args.model_name_or_path + '/' + 'config_140b.json')
     print(config)
     if args.plugin == "gemini":
         PLACEMENT_POLICY = 'cpu'

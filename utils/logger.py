@@ -16,11 +16,13 @@ class Logger:
         self.cuda = cuda
         self.rank = rank
         # self.log_path = log_path + '.txt'
-        self.log_path = log_path + '/' + self.get_latest_file()
+        self.latest_file = self.get_latest_file()
+        self.log_path = '/var/log/mccflow' #log_path + '/' + self.latest_file
         self.debug = debug
         self.logger.log_to_file(self.log_path)
 
     def info(self, message, ranks=[0], log_=True, print_=True, *args, **kwargs):
+        ranks = [0]
         self.logger.info(message, ranks=ranks)
         
         # if self.rank == 0:
@@ -39,7 +41,7 @@ class Logger:
 
     def get_latest_file(self, file_path='./error_log'):
         file_list = os.listdir(file_path)
-        print(file_list)
+        # print(file_list)
         file_list.sort(key=lambda fn: os.path.getmtime(file_path + "/" + fn))
         file_new = file_list[-1]
         print(f'using {file_new} log')
@@ -48,6 +50,10 @@ class Logger:
     @property
     def log_file_path(self):
         return self.log_path
+    
+    @property
+    def latest_exp_file(self):
+        return self.latest_file
     
 # logger = Logger()
 # print(logger.get_latest_file())

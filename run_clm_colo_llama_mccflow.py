@@ -86,6 +86,8 @@ from transformers import LlamaConfig, LlamaForCausalLM, LlamaTokenizer
 from arguments import parse_args
 from data_provider import get_dataset
 
+import mlflow
+
 def main():
     args = parse_args()
     rank = int(os.environ['RANK'])
@@ -102,24 +104,24 @@ def main():
     #                   rank=0,
     #                   world_size=1,
     #                 host='127.0.0.1',
-    #                 port=random.randint(10023,45221), 
+    #                 port=random.randint(10023,45221),
     #                 backend='mccl')
     # rank = 0
 
     # ==============================
     # Initialize Booster
     # ==============================
-    config = LlamaConfig.from_json_file(args.model_name_or_path + '/' + 'config.json')
+    config = LlamaConfig.from_json_file(args.model_name_or_path + '/' + 'config_140b.json')
     print(config)
     if args.plugin == "gemini":
         PLACEMENT_POLICY = 'cpu'
-        plugin = GeminiPlugin(precision=args.mixed_precision, 
-                              initial_scale=2**16, 
-                              max_norm=args.grad_clip, 
-                              device=get_current_device(), 
-                              placement_policy=PLACEMENT_POLICY, 
-                              pin_memory=True, 
-                              strict_ddp_mode=True, 
+        plugin = GeminiPlugin(precision=args.mixed_precision,
+                              initial_scale=2**16,
+                              max_norm=args.grad_clip,
+                              device=get_current_device(),
+                              placement_policy=PLACEMENT_POLICY,
+                              pin_memory=True,
+                              strict_ddp_mode=True,
                               hidden_dim=config.hidden_size)
     elif args.plugin == "gemini_auto":
         plugin = GeminiPlugin(
@@ -150,7 +152,7 @@ def main():
 
     booster = Booster(plugin=plugin)
 
-    
+
     device = get_current_device()
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # information sent is the one passed as arguments along with your Python/PyTorch versions.
@@ -176,7 +178,9 @@ def main():
     )
     logger.info(f'using {logger.log_file_path} to log')
     log_args(logger, args)
-    
+
+    if rank == 0: mlflow.log_params(args)
+
 
     # If passed along, set the training seed now.
     # if args.seed is not None:
@@ -225,7 +229,7 @@ def main():
     #         "You are instantiating a new tokenizer from scratch. This is not supported by this script."
     #         "You can do it from another script, save it, and load it from here, using --tokenizer_name."
     #     )
-    
+
     # print(args.model_name_or_path + '/config.json')
     tokenizer = LlamaTokenizer.from_pretrained(args.model_name_or_path)
     colo_device = torch.device('cpu')
@@ -234,7 +238,7 @@ def main():
     logger.info(get_mem_info(), [i for i in range(world_size)])
     # mixed_precision = torch.float16
     start = time.time()
-    with ColoInitContext(device=colo_device, 
+    with ColoInitContext(device=colo_device,
                          default_dist_spec=default_dist_spec,
                          default_pg=shard_pg): #device=device
         model = LlamaForCausalLM(config)
@@ -244,24 +248,24 @@ def main():
     model.tie_weights()
     numel = sum([p.numel() for p in model.parameters()])
     logger.info(f'shard init model parameter numel {numel}', [i for i in range(world_size)])
-    
+
     # model_state_dict = torch.load('./chatglm6b.pt', map_location='cpu')
     # model.load_state_dict(model_state_dict, strict=False)
     model.gradient_checkpointing_enable()
-    
+
     # We resize the embeddings only when necessary to avoid index errors. If you are creating a model from scratch
     # on a small vocab and want a smaller embedding size, remove this test.
     embedding_size = model.get_input_embeddings().weight.shape[0]
     if len(tokenizer) > embedding_size:
         model.resize_token_embeddings(len(tokenizer))
-    
+
     # start = time.time()
     # PLACEMENT_POLICY = 'cpu'
-    # model = GeminiDDP(model, 
-    #                   device=get_current_device(), 
-    #                   placement_policy=PLACEMENT_POLICY, 
-    #                   pin_memory=True, 
-    #                   strict_ddp_mode=args.tp_degree == 1, 
+    # model = GeminiDDP(model,
+    #                   device=get_current_device(),
+    #                   placement_policy=PLACEMENT_POLICY,
+    #                   pin_memory=True,
+    #                   strict_ddp_mode=args.tp_degree == 1,
     #                   hidden_dim=config.hidden_size,
     #                   mixed_precision=mixed_precision)
     # logger.info(f'coloinit has cost {(time.time() - start) / 60:.3f} mins', [i for i in range(world_size)])
@@ -291,7 +295,7 @@ def main():
             "weight_decay": 0.0,
         },
     ]
-    
+
     # optimizer = HybridAdam(optimizer_grouped_parameters, lr=args.learning_rate)
     optimizer = CPUAdam(optimizer_grouped_parameters, lr=args.learning_rate, betas=[0.9, 0.95])
     # optimizer = ZeroOptimizer(optimizer, model)#2**14
@@ -317,7 +321,7 @@ def main():
     logger.info(f'gemini init has cost {(time.time() - start) / 60:.3f} mins', [i for i in range(world_size)])
     numel = sum([p.numel() for p in model.parameters()])
     logger.info(f'model parameter numel {numel}', [i for i in range(world_size)])
-    
+
     if dist.get_rank() == 0:
         logger.info(f'chunk size: {model.unwrap().chunk_manager.dp_degree_chunk_size_dict}')
         for k, chunks in model.unwrap().chunk_manager.chunk_groups.items():
@@ -335,7 +339,7 @@ def main():
     # )
 
     # On TPU, the tie weights in our model have been disconnected, so we need to restore the ties.
-    
+
 
     # We need to recalculate our total training steps as the size of the training dataloader may have changed.
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
@@ -403,7 +407,7 @@ def main():
     # # update the progress_bar if load from checkpoint
     progress_bar.update(starting_epoch * num_update_steps_per_epoch)
     completed_steps = starting_epoch * num_update_steps_per_epoch
- 
+
     timer = MultiTimer()
 
     for epoch in range(starting_epoch, args.num_train_epochs):
@@ -426,7 +430,7 @@ def main():
             timer.start('forward')
 
             outputs = model(**batch)
-        
+
             dist.barrier()
             timer.stop('forward', keep_in_history=True)
             # if dist.get_rank() == 0:
@@ -434,13 +438,13 @@ def main():
             logger.info(f'forward has cost {forward_elapsed_time:.3f}', [i for i in range(world_size)])
 
             loss = outputs.loss
-                
+
             total_loss += loss.detach().float()
             # loss.backward()
             timer.start('backward')
 
             optimizer.backward(loss)
-        
+
             dist.barrier()
             timer.stop('backward', keep_in_history=True)
             # if dist.get_rank() == 0:
@@ -451,7 +455,7 @@ def main():
             timer.start('optimizer')
 
             optimizer.step()
-        
+
             dist.barrier()
             timer.stop('optimizer', keep_in_history=True)
             # if dist.get_rank() == 0:
@@ -472,10 +476,14 @@ def main():
                           f'| loss: {cur_loss.item():.5f} | ppl: {math.exp(cur_loss):.4f} | lr: {current_lr:.8f} '+ \
                           f'| second/batch: {elapsed_time_per_iteration :.3f} | token/second: {samples_per_sec:.2f} | tflops: {tflops:5f}'
                 logger.info(log_str, [i for i in range(world_size)])
+                if rank == 0: mlflow.log_metric("loss", float(cur_loss.item()), completed_steps)
+                if rank == 0: mlflow.log_metric("second/batch", elapsed_time_per_iteration, completed_steps)
+                if rank == 0: mlflow.log_metric("token/second", samples_per_sec, completed_steps)
+                if rank == 0: mlflow.log_metric("tflops", tflops, completed_steps)
 
             lr_scheduler.step()
             optimizer.zero_grad()
-            
+
             # evaluate(model, eval_dataloader, epoch, device, args)
             # test(model, test_dataloader, epoch, device, args)
             # dist.barrier()
@@ -490,7 +498,7 @@ def main():
                     save_dir = args.save_dir + '/'  + logger.latest_exp_file
                     save(
                         booster,
-                        model, 
+                        model,
                         optimizer,
                         lr_scheduler,
                         epoch,
@@ -507,7 +515,7 @@ def main():
         evaluate(model, eval_dataloader, epoch, device, args, logger)
         test(model, test_dataloader, epoch, device, args, logger)
 
-       
+
         # if args.with_tracking:
         #     accelerator.log(
         #         {
@@ -519,7 +527,7 @@ def main():
         #         },
         #         step=completed_steps,
         #     )
-       
+
         if args.push_to_hub and epoch < args.num_train_epochs - 1:
             accelerator.wait_for_everyone()
             unwrapped_model = accelerator.unwrap_model(model)
@@ -536,7 +544,7 @@ def main():
             save_dir = args.save_dir + '/'  + logger.latest_exp_file
             save(
                 booster,
-                model, 
+                model,
                 optimizer,
                 lr_scheduler,
                 epoch,
@@ -592,7 +600,7 @@ def test(model, test_dataloader, epoch, device, args, logger):
     losses = []
     for step, batch in enumerate(test_dataloader):
         with torch.no_grad():
-            
+
             batch['input_ids'] = batch['input_ids'].to(device)
             batch['attention_mask'] = batch['attention_mask'].to(device)
             batch['labels'] = batch['labels'].to(device)
@@ -607,7 +615,7 @@ def test(model, test_dataloader, epoch, device, args, logger):
         perplexity = math.exp(test_loss)
     except OverflowError:
         perplexity = float("inf")
-        
+
     if dist.get_rank() == 0:
         logger.info(f"epoch {epoch}: perplexity: {perplexity} test_loss: {test_loss}")
         with open(os.path.join(args.output_dir, "all_results.json"), "w") as f:
